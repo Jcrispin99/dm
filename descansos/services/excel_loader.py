@@ -16,7 +16,7 @@ from django.db import transaction
 from openpyxl import load_workbook
 
 from ..models import DescansoMedico, Gerencia, Motivo, Paciente
-from .column_mapper import build_header_map
+from .column_mapper import find_header_in_sheet
 
 
 @dataclass
@@ -62,23 +62,38 @@ def cargar_excel(file_obj, nombre_archivo: str = '') -> LoadResult:
     wb = load_workbook(file_obj, data_only=True, read_only=True)
     ws = wb.active
 
-    rows_iter = ws.iter_rows(values_only=True)
-    try:
-        header_row = next(rows_iter)
-    except StopIteration:
+    # Recorremos la hoja una sola vez y guardamos las filas; así podemos
+    # escanear las primeras buscando la cabecera (puede estar en F5, B3,
+    # donde sea) y luego iterar desde la fila inmediatamente debajo.
+    all_rows = list(ws.iter_rows(values_only=True))
+    if not all_rows:
         result.errores_columnas.append('El Excel está vacío.')
         return result
 
-    header_list = list(header_row)
-    mapping, missing = build_header_map(header_list)
-    if missing:
-        result.errores_columnas.append(
-            'Faltan columnas obligatorias: ' + ', '.join(missing)
-        )
+    header_idx, mapping, missing, header_row = find_header_in_sheet(iter(all_rows))
+
+    if header_idx == -1 or missing:
+        if header_idx == -1:
+            result.errores_columnas.append(
+                'No se encontró ninguna fila de cabecera con las columnas esperadas '
+                '(Código, Nombre del Trabajador, Gerencia, Fecha de Inicio DM, '
+                'Fecha de Término DM, Clasificación) en las primeras 50 filas.'
+            )
+        else:
+            detectados = [h for h in header_row if h not in (None, '')]
+            result.errores_columnas.append(
+                'Faltan columnas obligatorias: ' + ', '.join(missing) +
+                f'. Cabecera detectada en fila {header_idx + 1}: ' +
+                ', '.join(str(d) for d in detectados)
+            )
         return result
 
+    data_rows = all_rows[header_idx + 1:]
+    base_row_number = header_idx + 2  # número de fila Excel (1-based) de la primera fila de datos
+
     with transaction.atomic():
-        for excel_row_num, row in enumerate(rows_iter, start=2):
+        for offset, row in enumerate(data_rows):
+            excel_row_num = base_row_number + offset
             if row is None or all(cell is None or cell == '' for cell in row):
                 continue
 

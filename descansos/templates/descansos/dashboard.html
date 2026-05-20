@@ -3,31 +3,60 @@
 
 {% block extra_head %}
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
+  <style>
+    /* Ajustes a Choices.js para integrarlo con el resto del dashboard */
+    .choices { width: 100%; margin-bottom: 0; }
+    .choices__inner {
+      padding: 4px 8px;
+      min-height: 32px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .choices[data-type*=select-multiple] .choices__inner { padding-bottom: 4px; }
+    .choices__list--multiple .choices__item {
+      background: var(--primary);
+      border: 1px solid var(--primary);
+      border-radius: 4px;
+      font-size: 12px;
+      padding: 2px 8px;
+      margin-bottom: 2px;
+    }
+    .choices__list--dropdown .choices__item--selectable.is-highlighted {
+      background: var(--bg);
+    }
+    .choices__input { background: transparent; font-size: 14px; }
+  </style>
 {% endblock %}
 
 {% block content %}
   <div class="card">
     <h2>Filtros</h2>
-    <form id="filtros" class="filters" onsubmit="event.preventDefault(); cargarTodo();">
-      <div>
-        <label for="f-desde">Desde</label>
-        <input type="date" id="f-desde" name="desde" value="{{ fecha_min|date:'Y-m-d' }}">
+    <form id="filtros" onsubmit="event.preventDefault(); cargarTodo();">
+      <div class="filters" style="margin-bottom: 12px;">
+        <div>
+          <label for="f-desde">Desde</label>
+          <input type="date" id="f-desde" name="desde" value="{{ fecha_min|date:'Y-m-d' }}">
+        </div>
+        <div>
+          <label for="f-hasta">Hasta</label>
+          <input type="date" id="f-hasta" name="hasta" value="{{ fecha_max|date:'Y-m-d' }}">
+        </div>
+        <div style="margin-left: auto;">
+          <button type="submit" class="btn">Aplicar</button>
+          <button type="button" class="btn btn-secondary" onclick="limpiarFiltros()">Limpiar</button>
+        </div>
       </div>
-      <div>
-        <label for="f-hasta">Hasta</label>
-        <input type="date" id="f-hasta" name="hasta" value="{{ fecha_max|date:'Y-m-d' }}">
-      </div>
-      <div>
+      <div style="width: 100%;">
         <label for="f-gerencia">Gerencia</label>
-        <select id="f-gerencia" name="gerencia" multiple size="3" style="min-width: 220px;">
+        <select id="f-gerencia" name="gerencia" multiple>
           {% for g in gerencias %}
             <option value="{{ g.id }}">{{ g.nombre }}</option>
           {% endfor %}
         </select>
-      </div>
-      <div>
-        <button type="submit" class="btn">Aplicar</button>
-        <button type="button" class="btn btn-secondary" onclick="limpiarFiltros()">Limpiar</button>
       </div>
     </form>
   </div>
@@ -61,11 +90,21 @@
 <script>
 const charts = {};
 
+const gerenciaChoices = new Choices('#f-gerencia', {
+  removeItemButton: true,
+  placeholder: true,
+  placeholderValue: 'Todas las gerencias',
+  searchPlaceholderValue: 'Buscar gerencia…',
+  noResultsText: 'Sin coincidencias',
+  noChoicesText: 'No hay más gerencias',
+  itemSelectText: '',
+  shouldSort: false,
+});
+
 function getParams() {
   const desde = document.getElementById('f-desde').value;
   const hasta = document.getElementById('f-hasta').value;
-  const sel = document.getElementById('f-gerencia');
-  const gerencias = Array.from(sel.selectedOptions).map(o => o.value);
+  const gerencias = gerenciaChoices.getValue(true);
   const p = new URLSearchParams();
   if (desde) p.set('desde', desde);
   if (hasta) p.set('hasta', hasta);
@@ -137,10 +176,12 @@ function cargarTodo() {
 function limpiarFiltros() {
   document.getElementById('f-desde').value = '{{ fecha_min|date:"Y-m-d" }}';
   document.getElementById('f-hasta').value = '{{ fecha_max|date:"Y-m-d" }}';
-  const sel = document.getElementById('f-gerencia');
-  Array.from(sel.options).forEach(o => o.selected = false);
+  gerenciaChoices.removeActiveItems();
   cargarTodo();
 }
+
+// Recarga el dashboard cuando cambia la selección de gerencias
+document.getElementById('f-gerencia').addEventListener('change', cargarTodo);
 
 cargarTodo();
 </script>

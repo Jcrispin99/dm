@@ -55,10 +55,10 @@ FIELD_ALIASES = {
 REQUIRED_FIELDS = ['codigo', 'nombre', 'gerencia', 'fecha_inicio', 'fecha_fin', 'motivo']
 
 
-def build_header_map(header_row: list[str]) -> tuple[dict[str, int], list[str]]:
-    """Mapea cada campo lógico al índice de columna en el header.
+def build_header_map(header_row) -> tuple[dict[str, int], list[str]]:
+    """Mapea cada campo lógico al índice de columna en una fila dada.
 
-    Devuelve (mapping, missing_required). Si todo va bien, missing_required es [].
+    Devuelve (mapping, missing_required).
     """
     normalized_headers = [normalize(h) for h in header_row]
     mapping: dict[str, int] = {}
@@ -71,3 +71,41 @@ def build_header_map(header_row: list[str]) -> tuple[dict[str, int], list[str]]:
 
     missing = [f for f in REQUIRED_FIELDS if f not in mapping]
     return mapping, missing
+
+
+def find_header_in_sheet(rows, max_scan: int = 50) -> tuple[int, dict[str, int], list[str], list]:
+    """Escanea las primeras filas para encontrar la cabecera real.
+
+    Acepta el resultado de ws.iter_rows(values_only=True) o cualquier iterable
+    de filas. La cabecera puede estar en cualquier posición (no necesariamente
+    A1) — el Excel puede tener banners/títulos arriba o columnas vacías a la
+    izquierda. Se elige la fila que contenga todos los campos obligatorios; si
+    ninguna los tiene, devuelve la que tenga más coincidencias para que el
+    mensaje de error sea útil.
+
+    Devuelve (header_row_index_zero_based, mapping, missing, header_row_values).
+    Si no se encontró ninguna fila con matches, header_row_index = -1.
+    """
+    best_idx = -1
+    best_mapping: dict[str, int] = {}
+    best_missing = list(REQUIRED_FIELDS)
+    best_row: list = []
+
+    for i, row in enumerate(rows):
+        if i >= max_scan:
+            break
+        row_list = list(row) if row is not None else []
+        mapping, missing = build_header_map(row_list)
+        if not mapping:
+            continue
+        # preferimos filas que tienen todos los obligatorios; entre esas, la primera
+        if not missing:
+            return i, mapping, missing, row_list
+        # si nadie tiene todos, guardamos la de mejor cobertura
+        if len(mapping) > len(best_mapping):
+            best_idx = i
+            best_mapping = mapping
+            best_missing = missing
+            best_row = row_list
+
+    return best_idx, best_mapping, best_missing, best_row
