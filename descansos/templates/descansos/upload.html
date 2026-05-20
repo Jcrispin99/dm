@@ -1,0 +1,63 @@
+{% extends 'descansos/base.html' %}
+{% block title %}Cargar Excel · Reporte DM{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <h2>Cargar Excel de descansos médicos</h2>
+    <p style="color: var(--muted); margin-top: 0;">
+      Las columnas se detectan por nombre. Si una fila ya existe (mismo paciente,
+      misma fecha de inicio y término), se omite automáticamente.
+    </p>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="margin-bottom: 12px;">
+        {{ form.archivo.label_tag }}<br>
+        {{ form.archivo }}
+        {% if form.archivo.help_text %}
+          <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">{{ form.archivo.help_text }}</div>
+        {% endif %}
+        {% if form.archivo.errors %}
+          <div class="alert alert-err">{{ form.archivo.errors|join:", " }}</div>
+        {% endif %}
+      </div>
+      <button class="btn" type="submit">Cargar</button>
+    </form>
+  </div>
+
+  {% if result %}
+    <div class="card">
+      <h2>Resumen de carga: {{ result.archivo }}</h2>
+
+      {% if result.errores_columnas %}
+        <div class="alert alert-err">
+          <strong>No se cargó el archivo.</strong>
+          <ul style="margin: 8px 0 0 16px;">
+            {% for err in result.errores_columnas %}<li>{{ err }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% else %}
+        <div class="summary">
+          <div class="stat"><div class="num">{{ result.leidas }}</div><div class="lbl">Filas leídas</div></div>
+          <div class="stat"><div class="num" style="color: var(--ok);">{{ result.insertadas }}</div><div class="lbl">Insertadas</div></div>
+          <div class="stat"><div class="num" style="color: var(--warn);">{{ result.duplicadas }}</div><div class="lbl">Duplicadas (omitidas)</div></div>
+          <div class="stat"><div class="num" style="color: var(--err);">{{ result.invalidas }}</div><div class="lbl">Inválidas</div></div>
+        </div>
+
+        {% if result.errores_filas %}
+          <h3 style="margin-top: 20px;">Filas inválidas</h3>
+          <table>
+            <thead><tr><th>Fila</th><th>Problemas</th></tr></thead>
+            <tbody>
+              {% for err in result.errores_filas %}
+                <tr>
+                  <td>{{ err.fila }}</td>
+                  <td>{{ err.problemas|join:", " }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
+      {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}

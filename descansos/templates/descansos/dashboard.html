@@ -1,0 +1,147 @@
+{% extends 'descansos/base.html' %}
+{% block title %}Dashboard · Reporte DM{% endblock %}
+
+{% block extra_head %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <h2>Filtros</h2>
+    <form id="filtros" class="filters" onsubmit="event.preventDefault(); cargarTodo();">
+      <div>
+        <label for="f-desde">Desde</label>
+        <input type="date" id="f-desde" name="desde" value="{{ fecha_min|date:'Y-m-d' }}">
+      </div>
+      <div>
+        <label for="f-hasta">Hasta</label>
+        <input type="date" id="f-hasta" name="hasta" value="{{ fecha_max|date:'Y-m-d' }}">
+      </div>
+      <div>
+        <label for="f-gerencia">Gerencia</label>
+        <select id="f-gerencia" name="gerencia" multiple size="3" style="min-width: 220px;">
+          {% for g in gerencias %}
+            <option value="{{ g.id }}">{{ g.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <button type="submit" class="btn">Aplicar</button>
+        <button type="button" class="btn btn-secondary" onclick="limpiarFiltros()">Limpiar</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Días por gerencia</h2>
+      <canvas id="chart-gerencia"></canvas>
+    </div>
+    <div class="card">
+      <h2>Ranking por motivo (días totales)</h2>
+      <canvas id="chart-motivo"></canvas>
+    </div>
+    <div class="card">
+      <h2>Tendencia mensual</h2>
+      <canvas id="chart-tendencia"></canvas>
+    </div>
+    <div class="card">
+      <h2>Top 20 pacientes recurrentes</h2>
+      <div style="max-height: 360px; overflow:auto;">
+        <table id="tbl-pacientes">
+          <thead><tr><th>Paciente</th><th style="text-align:right">Casos</th><th style="text-align:right">Días</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_body %}
+<script>
+const charts = {};
+
+function getParams() {
+  const desde = document.getElementById('f-desde').value;
+  const hasta = document.getElementById('f-hasta').value;
+  const sel = document.getElementById('f-gerencia');
+  const gerencias = Array.from(sel.selectedOptions).map(o => o.value);
+  const p = new URLSearchParams();
+  if (desde) p.set('desde', desde);
+  if (hasta) p.set('hasta', hasta);
+  gerencias.forEach(g => p.append('gerencia', g));
+  return p.toString();
+}
+
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  return r.json();
+}
+
+function renderChart(id, type, labels, datasets, opts = {}) {
+  const ctx = document.getElementById(id);
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type,
+    data: { labels, datasets },
+    options: Object.assign({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+    }, opts),
+  });
+}
+
+async function cargarGerencia() {
+  const d = await fetchJSON('{% url "descansos:api_dias_por_gerencia" %}?' + getParams());
+  renderChart('chart-gerencia', 'bar', d.labels, [
+    { label: 'Días', data: d.dias, backgroundColor: '#2563eb' },
+    { label: 'Casos', data: d.casos, backgroundColor: '#93c5fd' },
+  ], { indexAxis: 'y' });
+}
+
+async function cargarMotivo() {
+  const d = await fetchJSON('{% url "descansos:api_ranking_motivos" %}?' + getParams());
+  renderChart('chart-motivo', 'bar', d.labels, [
+    { label: 'Días totales', data: d.dias, backgroundColor: '#16a34a' },
+    { label: 'Casos', data: d.casos, backgroundColor: '#86efac' },
+  ]);
+}
+
+async function cargarTendencia() {
+  const d = await fetchJSON('{% url "descansos:api_tendencia_mensual" %}?' + getParams());
+  renderChart('chart-tendencia', 'line', d.labels, [
+    { label: 'Días', data: d.dias, borderColor: '#d97706', backgroundColor: '#fbbf24', tension: 0.3 },
+    { label: 'Casos', data: d.casos, borderColor: '#2563eb', backgroundColor: '#93c5fd', tension: 0.3 },
+  ]);
+}
+
+async function cargarPacientes() {
+  const d = await fetchJSON('{% url "descansos:api_top_pacientes" %}?' + getParams());
+  const tbody = document.querySelector('#tbl-pacientes tbody');
+  tbody.innerHTML = '';
+  d.labels.forEach((nombre, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${nombre}</td><td style="text-align:right">${d.casos[i]}</td><td style="text-align:right">${d.dias[i]}</td>`;
+    tbody.appendChild(tr);
+  });
+  if (d.labels.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--muted); text-align:center">Sin datos</td></tr>';
+  }
+}
+
+function cargarTodo() {
+  cargarGerencia(); cargarMotivo(); cargarTendencia(); cargarPacientes();
+}
+
+function limpiarFiltros() {
+  document.getElementById('f-desde').value = '{{ fecha_min|date:"Y-m-d" }}';
+  document.getElementById('f-hasta').value = '{{ fecha_max|date:"Y-m-d" }}';
+  const sel = document.getElementById('f-gerencia');
+  Array.from(sel.options).forEach(o => o.selected = false);
+  cargarTodo();
+}
+
+cargarTodo();
+</script>
+{% endblock %}
