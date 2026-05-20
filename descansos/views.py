@@ -1,15 +1,17 @@
 from datetime import date
 
+from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
 from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
 from .forms import UploadExcelForm
-from .models import DescansoMedico, Gerencia
+from .models import DescansoMedico, Gerencia, Paciente
 from .services.excel_loader import cargar_excel
 
 
+@login_required
 def upload_view(request):
     result = None
     if request.method == 'POST':
@@ -24,6 +26,7 @@ def upload_view(request):
     })
 
 
+@login_required
 def dashboard_view(request):
     gerencias = Gerencia.objects.order_by('nombre')
     first = DescansoMedico.objects.order_by('fecha_inicio').values_list('fecha_inicio', flat=True).first()
@@ -49,6 +52,7 @@ def _apply_filters(qs, request):
     return qs
 
 
+@login_required
 def api_dias_por_gerencia(request):
     qs = _apply_filters(DescansoMedico.objects.all(), request)
     data = (
@@ -63,6 +67,7 @@ def api_dias_por_gerencia(request):
     })
 
 
+@login_required
 def api_ranking_motivos(request):
     qs = _apply_filters(DescansoMedico.objects.all(), request)
     data = (
@@ -77,6 +82,7 @@ def api_ranking_motivos(request):
     })
 
 
+@login_required
 def api_tendencia_mensual(request):
     qs = _apply_filters(DescansoMedico.objects.all(), request)
     data = (
@@ -92,6 +98,7 @@ def api_tendencia_mensual(request):
     })
 
 
+@login_required
 def api_top_pacientes(request):
     qs = _apply_filters(DescansoMedico.objects.all(), request)
     data = (
@@ -100,7 +107,64 @@ def api_top_pacientes(request):
         .order_by('-casos', '-total_dias')[:20]
     )
     return JsonResponse({
+        'codigos': [row['paciente__codigo'] for row in data],
         'labels': [f"{row['paciente__codigo']} - {row['paciente__nombre']}" for row in data],
         'casos': [row['casos'] for row in data],
         'dias': [row['total_dias'] or 0 for row in data],
+    })
+
+
+@login_required
+def pacientes_view(request):
+    pacientes = Paciente.objects.all().order_by('nombre')
+    codigo_preseleccion = request.GET.get('codigo', '')
+    return render(request, 'descansos/pacientes.html', {
+        'pacientes': pacientes,
+        'codigo_preseleccion': codigo_preseleccion,
+        'active': 'pacientes',
+    })
+
+
+@login_required
+def api_paciente_detalle(request, codigo):
+    paciente = get_object_or_404(Paciente, codigo=codigo)
+    descansos_qs = (
+        DescansoMedico.objects
+        .filter(paciente=paciente)
+        .select_related('gerencia', 'motivo')
+        .order_by('-fecha_inicio')
+    )
+
+    resumen = descansos_qs.aggregate(
+        total_descansos=Count('id'),
+        total_dias=Sum('dias'),
+    )
+    primero = descansos_qs.order_by('fecha_inicio').values_list('fecha_inicio', flat=True).first()
+    ultimo = descansos_qs.values_list('fecha_inicio', flat=True).first()
+    gerencias = list(
+        descansos_qs.order_by().values_list('gerencia__nombre', flat=True).distinct()
+    )
+
+    descansos = [
+        {
+            'fecha_inicio': d.fecha_inicio.isoformat(),
+            'fecha_fin': d.fecha_fin.isoformat(),
+            'dias': d.dias,
+            'motivo': d.motivo.nombre,
+            'gerencia': d.gerencia.nombre,
+            'observaciones': d.observaciones,
+        }
+        for d in descansos_qs
+    ]
+
+    return JsonResponse({
+        'paciente': {'codigo': paciente.codigo, 'nombre': paciente.nombre},
+        'resumen': {
+            'total_descansos': resumen['total_descansos'] or 0,
+            'total_dias': resumen['total_dias'] or 0,
+            'primer_descanso': primero.isoformat() if primero else None,
+            'ultimo_descanso': ultimo.isoformat() if ultimo else None,
+            'gerencias': gerencias,
+        },
+        'descansos': descansos,
     })

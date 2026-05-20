@@ -160,8 +160,14 @@ async function cargarPacientes() {
   const tbody = document.querySelector('#tbl-pacientes tbody');
   tbody.innerHTML = '';
   d.labels.forEach((nombre, i) => {
+    const codigo = d.codigos[i];
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${nombre}</td><td style="text-align:right">${d.casos[i]}</td><td style="text-align:right">${d.dias[i]}</td>`;
+    tr.style.cursor = 'pointer';
+    tr.title = 'Ver detalle del paciente';
+    tr.innerHTML = `
+      <td><a href="/pacientes/?codigo=${encodeURIComponent(codigo)}" style="color: var(--primary); text-decoration: none;">${nombre}</a></td>
+      <td style="text-align:right">${d.casos[i]}</td>
+      <td style="text-align:right">${d.dias[i]}</td>`;
     tbody.appendChild(tr);
   });
   if (d.labels.length === 0) {

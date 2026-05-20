@@ -31,6 +31,7 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,6 +40,38 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'descansos',
 ]
+
+JAZZMIN_SETTINGS = {
+    'site_title': 'Reporte DM',
+    'site_header': 'Reporte de Descansos Médicos',
+    'site_brand': 'Reporte DM',
+    'welcome_sign': 'Bienvenido al panel de administración',
+    'copyright': '',
+    'show_sidebar': True,
+    'navigation_expanded': True,
+    'icons': {
+        'descansos.Paciente': 'fas fa-user',
+        'descansos.Gerencia': 'fas fa-building',
+        'descansos.Motivo': 'fas fa-stethoscope',
+        'descansos.DescansoMedico': 'fas fa-calendar-day',
+        'auth.User': 'fas fa-user-shield',
+        'auth.Group': 'fas fa-users',
+    },
+    'order_with_respect_to': ['descansos', 'auth'],
+    'topmenu_links': [
+        {'name': 'Dashboard', 'url': '/dashboard/', 'new_window': False},
+        {'name': 'Pacientes', 'url': '/pacientes/', 'new_window': False},
+        {'name': 'Cargar Excel', 'url': '/upload/', 'new_window': False},
+    ],
+    'show_ui_builder': False,
+}
+
+JAZZMIN_UI_TWEAKS = {
+    'theme': 'flatly',
+    'navbar': 'navbar-primary navbar-dark',
+    'sidebar': 'sidebar-dark-primary',
+    'sidebar_nav_compact_style': True,
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -116,3 +149,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Autenticación
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/dashboard/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'

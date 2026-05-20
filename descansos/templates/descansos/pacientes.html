@@ -1,0 +1,160 @@
+{% extends 'descansos/base.html' %}
+{% block title %}Pacientes · Reporte DM{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
+  <style>
+    .choices { width: 100%; margin-bottom: 0; }
+    .choices__inner {
+      padding: 6px 10px;
+      min-height: 38px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .choices__list--dropdown .choices__item--selectable.is-highlighted { background: var(--bg); }
+    .choices__input { background: transparent; font-size: 14px; }
+
+    .stat-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .stat-row .stat {
+      flex: 1 1 160px;
+      background: var(--bg);
+      padding: 12px 16px;
+      border-radius: 6px;
+    }
+    .stat .num { font-size: 22px; font-weight: 600; }
+    .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+
+    .pill {
+      display: inline-block;
+      background: var(--bg);
+      color: var(--text);
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      margin-right: 4px;
+    }
+    .obs { color: var(--muted); font-size: 13px; }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <h2>Buscar paciente</h2>
+    <p style="color: var(--muted); margin-top: 0;">Escribe código o nombre para filtrar.</p>
+    <select id="paciente-select">
+      <option value="">— Selecciona un paciente —</option>
+      {% for p in pacientes %}
+        <option value="{{ p.codigo }}" {% if codigo_preseleccion == p.codigo %}selected{% endif %}>{{ p.codigo }} — {{ p.nombre }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div id="detalle" style="display:none;">
+    <div class="card">
+      <h2 id="detalle-titulo"></h2>
+      <div id="detalle-gerencias" style="margin-bottom: 16px;"></div>
+      <div class="stat-row">
+        <div class="stat"><div class="lbl">Total de descansos</div><div class="num" id="r-total"></div></div>
+        <div class="stat"><div class="lbl">Total de días</div><div class="num" id="r-dias"></div></div>
+        <div class="stat"><div class="lbl">Primer descanso</div><div class="num" id="r-primero" style="font-size: 16px;"></div></div>
+        <div class="stat"><div class="lbl">Último descanso</div><div class="num" id="r-ultimo" style="font-size: 16px;"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Historial cronológico</h2>
+      <div style="overflow:auto;">
+        <table id="tbl-descansos">
+          <thead>
+            <tr>
+              <th>Fecha inicio</th>
+              <th>Fecha fin</th>
+              <th style="text-align:right">Días</th>
+              <th>Motivo</th>
+              <th>Gerencia</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="vacio" class="card" style="text-align:center; color: var(--muted);">
+    Selecciona un paciente para ver su detalle.
+  </div>
+{% endblock %}
+
+{% block extra_body %}
+<script>
+const pacienteChoices = new Choices('#paciente-select', {
+  searchPlaceholderValue: 'Buscar por código o nombre…',
+  itemSelectText: '',
+  shouldSort: false,
+  searchResultLimit: 20,
+});
+
+async function cargarDetalle(codigo) {
+  const detalle = document.getElementById('detalle');
+  const vacio = document.getElementById('vacio');
+  if (!codigo) {
+    detalle.style.display = 'none';
+    vacio.style.display = '';
+    return;
+  }
+
+  const r = await fetch(`/api/paciente/${encodeURIComponent(codigo)}/`);
+  if (!r.ok) {
+    detalle.style.display = 'none';
+    vacio.style.display = '';
+    vacio.textContent = 'No se pudo cargar el paciente.';
+    return;
+  }
+  const d = await r.json();
+
+  document.getElementById('detalle-titulo').textContent = `${d.paciente.codigo} — ${d.paciente.nombre}`;
+  document.getElementById('detalle-gerencias').innerHTML =
+    d.resumen.gerencias.map(g => `<span class="pill">${g}</span>`).join('') || '<span class="obs">Sin gerencias registradas</span>';
+
+  document.getElementById('r-total').textContent = d.resumen.total_descansos;
+  document.getElementById('r-dias').textContent = d.resumen.total_dias;
+  document.getElementById('r-primero').textContent = d.resumen.primer_descanso || '—';
+  document.getElementById('r-ultimo').textContent = d.resumen.ultimo_descanso || '—';
+
+  const tbody = document.querySelector('#tbl-descansos tbody');
+  tbody.innerHTML = '';
+  d.descansos.forEach(x => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${x.fecha_inicio}</td>
+      <td>${x.fecha_fin}</td>
+      <td style="text-align:right">${x.dias}</td>
+      <td>${x.motivo}</td>
+      <td>${x.gerencia}</td>
+      <td class="obs">${x.observaciones || '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  if (d.descansos.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted); text-align:center">Sin descansos registrados</td></tr>';
+  }
+
+  detalle.style.display = '';
+  vacio.style.display = 'none';
+}
+
+document.getElementById('paciente-select').addEventListener('change', (e) => {
+  cargarDetalle(e.target.value);
+});
+
+// Preselección por query string
+const preselect = "{{ codigo_preseleccion|escapejs }}";
+if (preselect) {
+  cargarDetalle(preselect);
+}
+</script>
+{% endblock %}

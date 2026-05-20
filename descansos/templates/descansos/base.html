@@ -97,11 +97,19 @@
 <body>
   <header>
     <h1>Reporte de Descansos Médicos</h1>
-    <nav>
+    <nav style="flex: 1;">
       <a href="{% url 'descansos:dashboard' %}" class="{% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
+      <a href="{% url 'descansos:pacientes' %}" class="{% if active == 'pacientes' %}active{% endif %}">Pacientes</a>
       <a href="{% url 'descansos:upload' %}" class="{% if active == 'upload' %}active{% endif %}">Cargar Excel</a>
       <a href="/admin/">Admin</a>
     </nav>
+    {% if user.is_authenticated %}
+      <div style="color: var(--muted); font-size: 13px;">{{ user.username }}</div>
+      <form method="post" action="{% url 'logout' %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary" style="padding: 4px 12px; font-size: 13px;">Salir</button>
+      </form>
+    {% endif %}
   </header>
   <main>
     {% block content %}{% endblock %}
