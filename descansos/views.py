@@ -198,6 +198,21 @@ def api_paciente_detalle(request, codigo):
     })
 
 
+def api_paciente_actualizar_telefono(request, codigo):
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    paciente = get_object_or_404(Paciente, codigo=codigo)
+    telefono = (request.POST.get('telefono') or '').strip()
+
+    if len(telefono) > 30:
+        return JsonResponse({'ok': False, 'errores': ['teléfono demasiado largo (máx. 30)']}, status=400)
+
+    paciente.telefono = telefono
+    paciente.save(update_fields=['telefono'])
+    return JsonResponse({'ok': True, 'telefono': paciente.telefono})
+
+
 def api_seguimiento_crear(request, codigo):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])

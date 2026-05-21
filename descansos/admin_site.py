@@ -7,11 +7,11 @@ Implementación basada en los hooks oficiales de Django:
 - admin_view(): envuelve auth/staff_required automáticamente
 """
 
-from django.contrib.admin import AdminSite
 from django.urls import path, reverse
+from unfold.sites import UnfoldAdminSite
 
 
-class ReporteAdminSite(AdminSite):
+class ReporteAdminSite(UnfoldAdminSite):
     site_header = 'Reporte de Descansos Médicos'
     site_title = 'Reporte DM'
     index_title = 'Panel'
@@ -30,6 +30,7 @@ class ReporteAdminSite(AdminSite):
             path('api/tendencia-mensual/', self.admin_view(views.api_tendencia_mensual), name='api_tendencia_mensual'),
             path('api/top-pacientes/', self.admin_view(views.api_top_pacientes), name='api_top_pacientes'),
             path('api/paciente/<str:codigo>/', self.admin_view(views.api_paciente_detalle), name='api_paciente_detalle'),
+            path('api/paciente/<str:codigo>/telefono/', self.admin_view(views.api_paciente_actualizar_telefono), name='api_paciente_actualizar_telefono'),
             path('api/paciente/<str:codigo>/seguimiento/', self.admin_view(views.api_seguimiento_crear), name='api_seguimiento_crear'),
         ]
         return custom + urls

@@ -31,7 +31,11 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
-    'jazzmin',
+    'unfold',
+    'unfold.contrib.filters',
+    'unfold.contrib.forms',
+    'unfold.contrib.inlines',
+    'unfold.contrib.import_export',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -41,41 +45,55 @@ INSTALLED_APPS = [
     'descansos',
 ]
 
-JAZZMIN_SETTINGS = {
-    'site_title': 'Reporte DM',
-    'site_header': 'Reporte de Descansos Médicos',
-    'site_brand': 'Reporte DM',
-    'welcome_sign': 'Bienvenido al panel de administración',
-    'copyright': '',
-    'show_sidebar': True,
-    'navigation_expanded': True,
-    'icons': {
-        'reportes': 'fas fa-chart-bar',
-        'reportes.Dashboard': 'fas fa-chart-line',
-        'reportes.Pacientes': 'fas fa-user-injured',
-        'reportes.Upload': 'fas fa-file-upload',
-        'descansos.Paciente': 'fas fa-user',
-        'descansos.Gerencia': 'fas fa-building',
-        'descansos.Motivo': 'fas fa-stethoscope',
-        'descansos.DescansoMedico': 'fas fa-calendar-day',
-        'descansos.Seguimiento': 'fas fa-phone-volume',
-        'auth.User': 'fas fa-user-shield',
-        'auth.Group': 'fas fa-users',
+UNFOLD = {
+    'SITE_TITLE': 'Reporte DM',
+    'SITE_HEADER': 'Reporte de Descansos Médicos',
+    'SITE_SUBHEADER': 'Panel de administración',
+    'SITE_URL': '/',
+    'SHOW_HISTORY': True,
+    'SHOW_VIEW_ON_SITE': True,
+    'SIDEBAR': {
+        'show_search': True,
+        'show_all_applications': True,
+        'navigation': [
+            {
+                'title': 'Accesos rápidos',
+                'separator': True,
+                'items': [
+                    {
+                        'title': 'Dashboard',
+                        'icon': 'dashboard',
+                        'link': lambda request: '/admin/dashboard/',
+                    },
+                    {
+                        'title': 'Pacientes',
+                        'icon': 'person',
+                        'link': lambda request: '/admin/pacientes/',
+                    },
+                    {
+                        'title': 'Cargar Excel',
+                        'icon': 'upload_file',
+                        'link': lambda request: '/admin/upload/',
+                    },
+                ],
+            },
+        ],
     },
-    'order_with_respect_to': ['reportes', 'descansos', 'auth'],
-    'topmenu_links': [
-        {'name': 'Dashboard', 'url': 'admin:dashboard', 'new_window': False},
-        {'name': 'Pacientes', 'url': 'admin:pacientes', 'new_window': False},
-        {'name': 'Cargar Excel', 'url': 'admin:upload', 'new_window': False},
-    ],
-    'show_ui_builder': False,
-}
-
-JAZZMIN_UI_TWEAKS = {
-    'theme': 'flatly',
-    'navbar': 'navbar-white navbar-light',
-    'sidebar': 'sidebar-dark-primary',
-    'sidebar_nav_compact_style': True,
+    'COLORS': {
+        'primary': {
+            '50': '240 249 255',
+            '100': '224 242 254',
+            '200': '186 230 253',
+            '300': '125 211 252',
+            '400': '56 189 248',
+            '500': '14 165 233',
+            '600': '2 132 199',
+            '700': '3 105 161',
+            '800': '7 89 133',
+            '900': '12 74 110',
+            '950': '8 47 73',
+        },
+    },
 }
 
 MIDDLEWARE = [

@@ -1,6 +1,9 @@
 from django.contrib import admin
-from django.contrib.auth.admin import GroupAdmin, UserAdmin
+from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import Group, User
+from unfold.admin import ModelAdmin
+from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
 from .admin_site import reporte_admin_site
 from .models import DescansoMedico, Gerencia, Motivo, Paciente, Seguimiento
@@ -37,25 +40,25 @@ class MotivoListFilter(admin.SimpleListFilter):
         return queryset
 
 
-class GerenciaAdmin(admin.ModelAdmin):
+class GerenciaAdmin(ModelAdmin):
     list_display = ('nombre',)
     search_fields = ('nombre',)
     list_per_page = 20
 
 
-class MotivoAdmin(admin.ModelAdmin):
+class MotivoAdmin(ModelAdmin):
     list_display = ('nombre',)
     search_fields = ('nombre',)
     list_per_page = 20
 
 
-class PacienteAdmin(admin.ModelAdmin):
+class PacienteAdmin(ModelAdmin):
     list_display = ('codigo', 'nombre', 'telefono')
     search_fields = ('codigo', 'nombre', 'telefono')
     list_per_page = 20
 
 
-class SeguimientoAdmin(admin.ModelAdmin):
+class SeguimientoAdmin(ModelAdmin):
     list_display = ('paciente', 'fecha', 'medio', 'estado', 'proximo_contacto', 'usuario')
     list_filter = ('medio', 'estado', 'fecha', 'usuario')
     search_fields = ('paciente__codigo', 'paciente__nombre', 'notas')
@@ -69,7 +72,7 @@ class SeguimientoAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
-class DescansoMedicoAdmin(admin.ModelAdmin):
+class DescansoMedicoAdmin(ModelAdmin):
     list_display = (
         'paciente', 'gerencia', 'fecha_inicio', 'fecha_fin', 'dias', 'motivo', 'cargado_en',
     )
@@ -77,6 +80,16 @@ class DescansoMedicoAdmin(admin.ModelAdmin):
     search_fields = ('paciente__codigo', 'paciente__nombre', 'observaciones')
     readonly_fields = ('dias', 'cargado_en')
     list_per_page = 20
+
+
+class UserAdmin(DjangoUserAdmin, ModelAdmin):
+    form = UserChangeForm
+    add_form = UserCreationForm
+    change_password_form = AdminPasswordChangeForm
+
+
+class GroupAdmin(DjangoGroupAdmin, ModelAdmin):
+    pass
 
 
 reporte_admin_site.register(Gerencia, GerenciaAdmin)

@@ -36,6 +36,11 @@
     .rdm-table th, .rdm-table td { padding: 6px 8px; text-align: left;
       border-bottom: 1px solid var(--rdm-border); }
     .rdm-table th { background: var(--rdm-bg); font-weight: 600; }
+    .rdm-btn { padding: 8px 18px; border: 1px solid var(--rdm-primary);
+      background: var(--rdm-primary); color: #fff; border-radius: 6px;
+      cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.15s; }
+    .rdm-btn:hover { background: #1d4ed8; border-color: #1d4ed8; }
+    .rdm-btn:active { background: #1e40af; }
   </style>
 {% endblock %}
 
@@ -62,14 +67,21 @@
 
   <div id="detalle" style="display:none;">
     <div class="rdm-card">
-      <h2 id="detalle-titulo"></h2>
-      <div id="detalle-telefono" style="margin-bottom: 8px; color: var(--rdm-text); font-size: 14px;"></div>
-      <div id="detalle-gerencias" style="margin-bottom: 16px;"></div>
-      <div class="stat-row">
-        <div class="stat"><div class="lbl">Total de descansos</div><div class="num" id="r-total"></div></div>
-        <div class="stat"><div class="lbl">Total de días</div><div class="num" id="r-dias"></div></div>
-        <div class="stat"><div class="lbl">Primer descanso</div><div class="num" id="r-primero" style="font-size: 16px;"></div></div>
-        <div class="stat"><div class="lbl">Último descanso</div><div class="num" id="r-ultimo" style="font-size: 16px;"></div></div>
+      <h2 id="detalle-titulo" style="margin-bottom: 12px;"></h2>
+      <div id="detalle-telefono-editor" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+        <label for="tel-input" class="lbl" style="margin: 0;">Teléfono</label>
+        <input type="tel" id="tel-input" placeholder="Ej: 999888777"
+               style="padding: 6px 10px; border: 1px solid var(--rdm-border); border-radius: 6px;
+                      font-size: 14px; width: 180px;">
+        <button type="button" id="tel-guardar" class="rdm-btn"
+                style="padding: 6px 14px; border: 1px solid var(--rdm-primary); background: var(--rdm-primary);
+                       color: #fff; border-radius: 6px; cursor: pointer; font-size: 13px;">Guardar</button>
+        <a id="tel-llamar" href="#" style="display: none; padding: 6px 12px; border: 1px solid var(--rdm-border);
+            border-radius: 6px; text-decoration: none; color: var(--rdm-text); font-size: 13px;">📞 Llamar</a>
+        <a id="tel-whatsapp" href="#" target="_blank" rel="noopener" style="display: none; padding: 6px 12px;
+            border: 1px solid var(--rdm-border); border-radius: 6px; text-decoration: none;
+            color: var(--rdm-text); font-size: 13px;">💬 WhatsApp</a>
+        <span id="tel-msg" style="font-size: 12px; margin-left: 4px;"></span>
       </div>
     </div>
 
@@ -193,16 +205,9 @@ async function cargarDetalle(codigo) {
   pacienteActual = d.paciente.codigo;
 
   document.getElementById('detalle-titulo').textContent = `${d.paciente.codigo} — ${d.paciente.nombre}`;
-  document.getElementById('detalle-telefono').innerHTML = d.paciente.telefono
-    ? `📞 <a href="tel:${d.paciente.telefono}" style="color: var(--rdm-primary); text-decoration: none;">${d.paciente.telefono}</a>`
-    : '<span class="obs">Sin teléfono registrado · agrégalo desde el admin del paciente</span>';
-  document.getElementById('detalle-gerencias').innerHTML =
-    d.resumen.gerencias.map(g => `<span class="pill">${g}</span>`).join('') || '<span class="obs">Sin gerencias registradas</span>';
-
-  document.getElementById('r-total').textContent = d.resumen.total_descansos;
-  document.getElementById('r-dias').textContent = d.resumen.total_dias;
-  document.getElementById('r-primero').textContent = d.resumen.primer_descanso || '—';
-  document.getElementById('r-ultimo').textContent = d.resumen.ultimo_descanso || '—';
+  document.getElementById('tel-input').value = d.paciente.telefono || '';
+  actualizarEnlacesTelefono(d.paciente.telefono || '');
+  document.getElementById('tel-msg').textContent = '';
 
   const tbody = document.querySelector('#tbl-descansos tbody');
   tbody.innerHTML = '';
@@ -280,6 +285,50 @@ document.getElementById('form-seguimiento').addEventListener('submit', async (e)
   msg.style.color = 'var(--rdm-ok, #16a34a)';
   form.reset();
   cargarDetalle(pacienteActual);
+  setTimeout(() => { msg.textContent = ''; }, 2500);
+});
+
+function actualizarEnlacesTelefono(tel) {
+  const llamar = document.getElementById('tel-llamar');
+  const wa = document.getElementById('tel-whatsapp');
+  const limpio = (tel || '').replace(/\D/g, '');
+  if (limpio) {
+    llamar.href = `tel:${tel}`;
+    llamar.style.display = '';
+    wa.href = `https://wa.me/${limpio}`;
+    wa.style.display = '';
+  } else {
+    llamar.style.display = 'none';
+    wa.style.display = 'none';
+  }
+}
+
+document.getElementById('tel-guardar').addEventListener('click', async () => {
+  if (!pacienteActual) return;
+  const input = document.getElementById('tel-input');
+  const msg = document.getElementById('tel-msg');
+  const csrf = document.querySelector('#form-seguimiento [name=csrfmiddlewaretoken]').value;
+  msg.textContent = 'Guardando…';
+  msg.style.color = 'var(--rdm-muted)';
+
+  const data = new FormData();
+  data.append('telefono', input.value.trim());
+  const r = await fetch(`/admin/api/paciente/${encodeURIComponent(pacienteActual)}/telefono/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': csrf },
+    body: data,
+  });
+  if (!r.ok) {
+    const errBody = await r.json().catch(() => ({}));
+    msg.textContent = 'Error: ' + ((errBody.errores || []).join(', ') || 'no se pudo guardar');
+    msg.style.color = '#dc2626';
+    return;
+  }
+  const body = await r.json();
+  input.value = body.telefono;
+  actualizarEnlacesTelefono(body.telefono);
+  msg.textContent = 'Teléfono guardado ✓';
+  msg.style.color = '#16a34a';
   setTimeout(() => { msg.textContent = ''; }, 2500);
 });
 
