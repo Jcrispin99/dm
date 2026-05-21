@@ -1,42 +1,60 @@
-{% extends 'descansos/base.html' %}
-{% block title %}Dashboard · Reporte DM{% endblock %}
+{% extends 'admin/base_site.html' %}
 
-{% block extra_head %}
+{% block title %}Dashboard · {{ site_title|default:'Reporte DM' }}{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css">
   <script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
   <style>
-    /* Ajustes a Choices.js para integrarlo con el resto del dashboard */
+    :root {
+      --rdm-bg: #f5f7fa; --rdm-card: #fff; --rdm-text: #1f2937; --rdm-muted: #6b7280;
+      --rdm-primary: #2563eb; --rdm-border: #e5e7eb;
+    }
+    .rdm-card { background: var(--rdm-card); border: 1px solid var(--rdm-border);
+      border-radius: 8px; padding: 20px; margin-bottom: 16px; color: var(--rdm-text); }
+    .rdm-card h2 { margin-top: 0; font-size: 16px; color: var(--rdm-text); }
+    .rdm-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    @media (max-width: 900px) { .rdm-grid { grid-template-columns: 1fr; } }
+    .rdm-filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+    .rdm-filters label { display: block; font-size: 12px; color: var(--rdm-muted); margin-bottom: 4px; }
+    .rdm-filters input, .rdm-filters select { padding: 6px 10px; border: 1px solid var(--rdm-border);
+      border-radius: 6px; font-size: 14px; }
+    .rdm-btn { background: var(--rdm-primary); color: white; border: none; padding: 8px 16px;
+      border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .rdm-btn-secondary { background: white; color: var(--rdm-text); border: 1px solid var(--rdm-border); }
     .choices { width: 100%; margin-bottom: 0; }
-    .choices__inner {
-      padding: 4px 8px;
-      min-height: 32px;
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 14px;
-    }
+    .choices__inner { padding: 4px 8px; min-height: 32px; background: white;
+      border: 1px solid var(--rdm-border); border-radius: 6px; font-size: 14px; }
     .choices[data-type*=select-multiple] .choices__inner { padding-bottom: 4px; }
-    .choices__list--multiple .choices__item {
-      background: var(--primary);
-      border: 1px solid var(--primary);
-      border-radius: 4px;
-      font-size: 12px;
-      padding: 2px 8px;
-      margin-bottom: 2px;
-    }
-    .choices__list--dropdown .choices__item--selectable.is-highlighted {
-      background: var(--bg);
-    }
+    .choices__list--multiple .choices__item { background: var(--rdm-primary);
+      border: 1px solid var(--rdm-primary); border-radius: 4px; font-size: 12px;
+      padding: 2px 8px; margin-bottom: 2px; }
+    .choices__list--dropdown .choices__item--selectable.is-highlighted { background: var(--rdm-bg); }
     .choices__input { background: transparent; font-size: 14px; }
+    .rdm-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .rdm-table th, .rdm-table td { padding: 6px 8px; text-align: left;
+      border-bottom: 1px solid var(--rdm-border); }
+    .rdm-table th { background: var(--rdm-bg); font-weight: 600; }
+    canvas { max-height: 320px; }
   </style>
 {% endblock %}
 
+{% block breadcrumbs %}
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'admin:index' %}">Inicio</a></li>
+    <li class="breadcrumb-item active">Dashboard</li>
+  </ol>
+{% endblock %}
+
+{% block content_title %}<h1>Dashboard</h1>{% endblock %}
+
 {% block content %}
-  <div class="card">
+  <div class="rdm-card">
     <h2>Filtros</h2>
     <form id="filtros" onsubmit="event.preventDefault(); cargarTodo();">
-      <div class="filters" style="margin-bottom: 12px;">
+      <div class="rdm-filters" style="margin-bottom: 12px;">
         <div>
           <label for="f-desde">Desde</label>
           <input type="date" id="f-desde" name="desde" value="{{ fecha_min|date:'Y-m-d' }}">
@@ -46,12 +64,12 @@
           <input type="date" id="f-hasta" name="hasta" value="{{ fecha_max|date:'Y-m-d' }}">
         </div>
         <div style="margin-left: auto;">
-          <button type="submit" class="btn">Aplicar</button>
-          <button type="button" class="btn btn-secondary" onclick="limpiarFiltros()">Limpiar</button>
+          <button type="submit" class="rdm-btn">Aplicar</button>
+          <button type="button" class="rdm-btn rdm-btn-secondary" onclick="limpiarFiltros()">Limpiar</button>
         </div>
       </div>
       <div style="width: 100%;">
-        <label for="f-gerencia">Gerencia</label>
+        <label for="f-gerencia" style="display:block; font-size:12px; color:var(--rdm-muted); margin-bottom:4px;">Gerencia</label>
         <select id="f-gerencia" name="gerencia" multiple>
           {% for g in gerencias %}
             <option value="{{ g.id }}">{{ g.nombre }}</option>
@@ -61,32 +79,30 @@
     </form>
   </div>
 
-  <div class="grid">
-    <div class="card">
+  <div class="rdm-grid">
+    <div class="rdm-card">
       <h2>Días por gerencia</h2>
       <canvas id="chart-gerencia"></canvas>
     </div>
-    <div class="card">
+    <div class="rdm-card">
       <h2>Ranking por motivo (días totales)</h2>
       <canvas id="chart-motivo"></canvas>
     </div>
-    <div class="card">
+    <div class="rdm-card">
       <h2>Tendencia mensual</h2>
       <canvas id="chart-tendencia"></canvas>
     </div>
-    <div class="card">
+    <div class="rdm-card">
       <h2>Top 20 pacientes recurrentes</h2>
       <div style="max-height: 360px; overflow:auto;">
-        <table id="tbl-pacientes">
+        <table id="tbl-pacientes" class="rdm-table">
           <thead><tr><th>Paciente</th><th style="text-align:right">Casos</th><th style="text-align:right">Días</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
     </div>
   </div>
-{% endblock %}
 
-{% block extra_body %}
 <script>
 const charts = {};
 
@@ -112,27 +128,22 @@ function getParams() {
   return p.toString();
 }
 
-async function fetchJSON(url) {
-  const r = await fetch(url);
-  return r.json();
-}
+async function fetchJSON(url) { return (await fetch(url)).json(); }
 
 function renderChart(id, type, labels, datasets, opts = {}) {
   const ctx = document.getElementById(id);
   if (charts[id]) charts[id].destroy();
   charts[id] = new Chart(ctx, {
-    type,
-    data: { labels, datasets },
+    type, data: { labels, datasets },
     options: Object.assign({
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { position: 'bottom' } },
     }, opts),
   });
 }
 
 async function cargarGerencia() {
-  const d = await fetchJSON('{% url "descansos:api_dias_por_gerencia" %}?' + getParams());
+  const d = await fetchJSON('{% url "admin:api_dias_por_gerencia" %}?' + getParams());
   renderChart('chart-gerencia', 'bar', d.labels, [
     { label: 'Días', data: d.dias, backgroundColor: '#2563eb' },
     { label: 'Casos', data: d.casos, backgroundColor: '#93c5fd' },
@@ -140,7 +151,7 @@ async function cargarGerencia() {
 }
 
 async function cargarMotivo() {
-  const d = await fetchJSON('{% url "descansos:api_ranking_motivos" %}?' + getParams());
+  const d = await fetchJSON('{% url "admin:api_ranking_motivos" %}?' + getParams());
   renderChart('chart-motivo', 'bar', d.labels, [
     { label: 'Días totales', data: d.dias, backgroundColor: '#16a34a' },
     { label: 'Casos', data: d.casos, backgroundColor: '#86efac' },
@@ -148,7 +159,7 @@ async function cargarMotivo() {
 }
 
 async function cargarTendencia() {
-  const d = await fetchJSON('{% url "descansos:api_tendencia_mensual" %}?' + getParams());
+  const d = await fetchJSON('{% url "admin:api_tendencia_mensual" %}?' + getParams());
   renderChart('chart-tendencia', 'line', d.labels, [
     { label: 'Días', data: d.dias, borderColor: '#d97706', backgroundColor: '#fbbf24', tension: 0.3 },
     { label: 'Casos', data: d.casos, borderColor: '#2563eb', backgroundColor: '#93c5fd', tension: 0.3 },
@@ -156,22 +167,20 @@ async function cargarTendencia() {
 }
 
 async function cargarPacientes() {
-  const d = await fetchJSON('{% url "descansos:api_top_pacientes" %}?' + getParams());
+  const d = await fetchJSON('{% url "admin:api_top_pacientes" %}?' + getParams());
   const tbody = document.querySelector('#tbl-pacientes tbody');
   tbody.innerHTML = '';
   d.labels.forEach((nombre, i) => {
     const codigo = d.codigos[i];
     const tr = document.createElement('tr');
-    tr.style.cursor = 'pointer';
-    tr.title = 'Ver detalle del paciente';
     tr.innerHTML = `
-      <td><a href="/pacientes/?codigo=${encodeURIComponent(codigo)}" style="color: var(--primary); text-decoration: none;">${nombre}</a></td>
+      <td><a href="/admin/pacientes/?codigo=${encodeURIComponent(codigo)}" style="color: var(--rdm-primary); text-decoration: none;">${nombre}</a></td>
       <td style="text-align:right">${d.casos[i]}</td>
       <td style="text-align:right">${d.dias[i]}</td>`;
     tbody.appendChild(tr);
   });
   if (d.labels.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--muted); text-align:center">Sin datos</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--rdm-muted); text-align:center">Sin datos</td></tr>';
   }
 }
 
@@ -186,9 +195,7 @@ function limpiarFiltros() {
   cargarTodo();
 }
 
-// Recarga el dashboard cuando cambia la selección de gerencias
 document.getElementById('f-gerencia').addEventListener('change', cargarTodo);
-
 cargarTodo();
 </script>
 {% endblock %}

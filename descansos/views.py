@@ -1,17 +1,20 @@
 from datetime import date
 
-from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
 from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 
+from django.http import HttpResponseNotAllowed
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
+
+from .admin_site import reporte_admin_site
 from .forms import UploadExcelForm
-from .models import DescansoMedico, Gerencia, Paciente
+from .models import DescansoMedico, Gerencia, Paciente, Seguimiento
 from .services.excel_loader import cargar_excel
 
 
-@login_required
 def upload_view(request):
     result = None
     if request.method == 'POST':
@@ -21,22 +24,26 @@ def upload_view(request):
             result = cargar_excel(archivo, nombre_archivo=archivo.name)
     else:
         form = UploadExcelForm()
-    return render(request, 'descansos/upload.html', {
-        'form': form, 'result': result, 'active': 'upload',
-    })
+    context = {
+        **reporte_admin_site.each_context(request),
+        'form': form, 'result': result,
+        'title': 'Cargar Excel',
+    }
+    return render(request, 'descansos/upload.html', context)
 
 
-@login_required
 def dashboard_view(request):
     gerencias = Gerencia.objects.order_by('nombre')
     first = DescansoMedico.objects.order_by('fecha_inicio').values_list('fecha_inicio', flat=True).first()
     last = DescansoMedico.objects.order_by('-fecha_fin').values_list('fecha_fin', flat=True).first()
-    return render(request, 'descansos/dashboard.html', {
+    context = {
+        **reporte_admin_site.each_context(request),
         'gerencias': gerencias,
         'fecha_min': first or date.today(),
         'fecha_max': last or date.today(),
-        'active': 'dashboard',
-    })
+        'title': 'Dashboard',
+    }
+    return render(request, 'descansos/dashboard.html', context)
 
 
 def _apply_filters(qs, request):
@@ -52,7 +59,6 @@ def _apply_filters(qs, request):
     return qs
 
 
-@login_required
 def api_dias_por_gerencia(request):
     qs = _apply_filters(DescansoMedico.objects.all(), request)
     data = (
@@ -67,7 +73,6 @@ def api_dias_por_gerencia(request):
     })
 
 
-@login_required
 def api_ranking_motivos(request):
     qs = _apply_filters(DescansoMedico.objects.all(), request)
     data = (
@@ -82,7 +87,6 @@ def api_ranking_motivos(request):
     })
 
 
-@login_required
 def api_tendencia_mensual(request):
     qs = _apply_filters(DescansoMedico.objects.all(), request)
     data = (
@@ -98,7 +102,6 @@ def api_tendencia_mensual(request):
     })
 
 
-@login_required
 def api_top_pacientes(request):
     qs = _apply_filters(DescansoMedico.objects.all(), request)
     data = (
@@ -114,18 +117,18 @@ def api_top_pacientes(request):
     })
 
 
-@login_required
 def pacientes_view(request):
     pacientes = Paciente.objects.all().order_by('nombre')
     codigo_preseleccion = request.GET.get('codigo', '')
-    return render(request, 'descansos/pacientes.html', {
+    context = {
+        **reporte_admin_site.each_context(request),
         'pacientes': pacientes,
         'codigo_preseleccion': codigo_preseleccion,
-        'active': 'pacientes',
-    })
+        'title': 'Pacientes',
+    }
+    return render(request, 'descansos/pacientes.html', context)
 
 
-@login_required
 def api_paciente_detalle(request, codigo):
     paciente = get_object_or_404(Paciente, codigo=codigo)
     descansos_qs = (
@@ -157,8 +160,28 @@ def api_paciente_detalle(request, codigo):
         for d in descansos_qs
     ]
 
+    seguimientos_qs = paciente.seguimientos.select_related('usuario').all()
+    seguimientos = [
+        {
+            'id': s.id,
+            'fecha': s.fecha.isoformat(),
+            'medio': s.medio,
+            'medio_display': s.get_medio_display(),
+            'estado': s.estado,
+            'estado_display': s.get_estado_display(),
+            'notas': s.notas,
+            'proximo_contacto': s.proximo_contacto.isoformat() if s.proximo_contacto else None,
+            'usuario': s.usuario.username if s.usuario else None,
+        }
+        for s in seguimientos_qs
+    ]
+
     return JsonResponse({
-        'paciente': {'codigo': paciente.codigo, 'nombre': paciente.nombre},
+        'paciente': {
+            'codigo': paciente.codigo,
+            'nombre': paciente.nombre,
+            'telefono': paciente.telefono,
+        },
         'resumen': {
             'total_descansos': resumen['total_descansos'] or 0,
             'total_dias': resumen['total_dias'] or 0,
@@ -167,4 +190,56 @@ def api_paciente_detalle(request, codigo):
             'gerencias': gerencias,
         },
         'descansos': descansos,
+        'seguimientos': seguimientos,
+        'choices': {
+            'medio': [{'value': k, 'label': v} for k, v in Seguimiento.MEDIO_CHOICES],
+            'estado': [{'value': k, 'label': v} for k, v in Seguimiento.ESTADO_CHOICES],
+        },
     })
+
+
+def api_seguimiento_crear(request, codigo):
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    paciente = get_object_or_404(Paciente, codigo=codigo)
+
+    medio = (request.POST.get('medio') or '').strip()
+    estado = (request.POST.get('estado') or '').strip()
+    notas = (request.POST.get('notas') or '').strip()
+    fecha_str = (request.POST.get('fecha') or '').strip()
+    proximo_str = (request.POST.get('proximo_contacto') or '').strip()
+
+    medios_validos = {k for k, _ in Seguimiento.MEDIO_CHOICES}
+    estados_validos = {k for k, _ in Seguimiento.ESTADO_CHOICES}
+
+    errores = []
+    if medio not in medios_validos:
+        errores.append('medio inválido')
+    if estado not in estados_validos:
+        errores.append('estado inválido')
+
+    fecha = parse_datetime(fecha_str) if fecha_str else None
+    if fecha_str and not fecha:
+        errores.append('fecha inválida')
+    if fecha and timezone.is_naive(fecha):
+        fecha = timezone.make_aware(fecha, timezone.get_current_timezone())
+
+    proximo = parse_date(proximo_str) if proximo_str else None
+    if proximo_str and not proximo:
+        errores.append('próximo contacto inválido')
+
+    if errores:
+        return JsonResponse({'ok': False, 'errores': errores}, status=400)
+
+    seg = Seguimiento.objects.create(
+        paciente=paciente,
+        fecha=fecha or timezone.now(),
+        medio=medio,
+        estado=estado,
+        notas=notas,
+        proximo_contacto=proximo,
+        usuario=request.user if request.user.is_authenticated else None,
+    )
+
+    return JsonResponse({'ok': True, 'id': seg.id})

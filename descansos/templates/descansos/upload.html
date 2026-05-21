@@ -1,10 +1,46 @@
-{% extends 'descansos/base.html' %}
-{% block title %}Cargar Excel · Reporte DM{% endblock %}
+{% extends 'admin/base_site.html' %}
+
+{% block title %}Cargar Excel · {{ site_title|default:'Reporte DM' }}{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <style>
+    :root {
+      --rdm-bg: #f5f7fa; --rdm-card: #fff; --rdm-text: #1f2937; --rdm-muted: #6b7280;
+      --rdm-primary: #2563eb; --rdm-ok: #16a34a; --rdm-warn: #d97706; --rdm-err: #dc2626;
+      --rdm-border: #e5e7eb;
+    }
+    .rdm-card { background: var(--rdm-card); border: 1px solid var(--rdm-border);
+      border-radius: 8px; padding: 20px; margin-bottom: 16px; color: var(--rdm-text); }
+    .rdm-card h2 { margin-top: 0; font-size: 16px; color: var(--rdm-text); }
+    .rdm-btn { background: var(--rdm-primary); color: white; border: none;
+      padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .summary { display: flex; gap: 16px; flex-wrap: wrap; }
+    .summary .stat { flex: 1 1 150px; }
+    .summary .num { font-size: 28px; font-weight: 600; }
+    .summary .lbl { font-size: 12px; color: var(--rdm-muted); text-transform: uppercase; }
+    .alert { padding: 12px; border-radius: 6px; margin-bottom: 12px; }
+    .alert-err { background: #fef2f2; color: var(--rdm-err); border: 1px solid #fca5a5; }
+    .rdm-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .rdm-table th, .rdm-table td { padding: 6px 8px; text-align: left;
+      border-bottom: 1px solid var(--rdm-border); }
+    .rdm-table th { background: var(--rdm-bg); font-weight: 600; }
+  </style>
+{% endblock %}
+
+{% block breadcrumbs %}
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'admin:index' %}">Inicio</a></li>
+    <li class="breadcrumb-item active">Cargar Excel</li>
+  </ol>
+{% endblock %}
+
+{% block content_title %}<h1>Cargar Excel</h1>{% endblock %}
 
 {% block content %}
-  <div class="card">
+  <div class="rdm-card">
     <h2>Cargar Excel de descansos médicos</h2>
-    <p style="color: var(--muted); margin-top: 0;">
+    <p style="color: var(--rdm-muted); margin-top: 0;">
       Las columnas se detectan por nombre. Si una fila ya existe (mismo paciente,
       misma fecha de inicio y término), se omite automáticamente.
     </p>
@@ -14,18 +50,18 @@
         {{ form.archivo.label_tag }}<br>
         {{ form.archivo }}
         {% if form.archivo.help_text %}
-          <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">{{ form.archivo.help_text }}</div>
+          <div style="font-size: 12px; color: var(--rdm-muted); margin-top: 4px;">{{ form.archivo.help_text }}</div>
         {% endif %}
         {% if form.archivo.errors %}
           <div class="alert alert-err">{{ form.archivo.errors|join:", " }}</div>
         {% endif %}
       </div>
-      <button class="btn" type="submit">Cargar</button>
+      <button class="rdm-btn" type="submit">Cargar</button>
     </form>
   </div>
 
   {% if result %}
-    <div class="card">
+    <div class="rdm-card">
       <h2>Resumen de carga: {{ result.archivo }}</h2>
 
       {% if result.errores_columnas %}
@@ -38,21 +74,18 @@
       {% else %}
         <div class="summary">
           <div class="stat"><div class="num">{{ result.leidas }}</div><div class="lbl">Filas leídas</div></div>
-          <div class="stat"><div class="num" style="color: var(--ok);">{{ result.insertadas }}</div><div class="lbl">Insertadas</div></div>
-          <div class="stat"><div class="num" style="color: var(--warn);">{{ result.duplicadas }}</div><div class="lbl">Duplicadas (omitidas)</div></div>
-          <div class="stat"><div class="num" style="color: var(--err);">{{ result.invalidas }}</div><div class="lbl">Inválidas</div></div>
+          <div class="stat"><div class="num" style="color: var(--rdm-ok);">{{ result.insertadas }}</div><div class="lbl">Insertadas</div></div>
+          <div class="stat"><div class="num" style="color: var(--rdm-warn);">{{ result.duplicadas }}</div><div class="lbl">Duplicadas (omitidas)</div></div>
+          <div class="stat"><div class="num" style="color: var(--rdm-err);">{{ result.invalidas }}</div><div class="lbl">Inválidas</div></div>
         </div>
 
         {% if result.errores_filas %}
           <h3 style="margin-top: 20px;">Filas inválidas</h3>
-          <table>
+          <table class="rdm-table">
             <thead><tr><th>Fila</th><th>Problemas</th></tr></thead>
             <tbody>
               {% for err in result.errores_filas %}
-                <tr>
-                  <td>{{ err.fila }}</td>
-                  <td>{{ err.problemas|join:", " }}</td>
-                </tr>
+                <tr><td>{{ err.fila }}</td><td>{{ err.problemas|join:", " }}</td></tr>
               {% endfor %}
             </tbody>
           </table>

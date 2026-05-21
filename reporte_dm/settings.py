@@ -50,25 +50,30 @@ JAZZMIN_SETTINGS = {
     'show_sidebar': True,
     'navigation_expanded': True,
     'icons': {
+        'reportes': 'fas fa-chart-bar',
+        'reportes.Dashboard': 'fas fa-chart-line',
+        'reportes.Pacientes': 'fas fa-user-injured',
+        'reportes.Upload': 'fas fa-file-upload',
         'descansos.Paciente': 'fas fa-user',
         'descansos.Gerencia': 'fas fa-building',
         'descansos.Motivo': 'fas fa-stethoscope',
         'descansos.DescansoMedico': 'fas fa-calendar-day',
+        'descansos.Seguimiento': 'fas fa-phone-volume',
         'auth.User': 'fas fa-user-shield',
         'auth.Group': 'fas fa-users',
     },
-    'order_with_respect_to': ['descansos', 'auth'],
+    'order_with_respect_to': ['reportes', 'descansos', 'auth'],
     'topmenu_links': [
-        {'name': 'Dashboard', 'url': '/dashboard/', 'new_window': False},
-        {'name': 'Pacientes', 'url': '/pacientes/', 'new_window': False},
-        {'name': 'Cargar Excel', 'url': '/upload/', 'new_window': False},
+        {'name': 'Dashboard', 'url': 'admin:dashboard', 'new_window': False},
+        {'name': 'Pacientes', 'url': 'admin:pacientes', 'new_window': False},
+        {'name': 'Cargar Excel', 'url': 'admin:upload', 'new_window': False},
     ],
     'show_ui_builder': False,
 }
 
 JAZZMIN_UI_TWEAKS = {
     'theme': 'flatly',
-    'navbar': 'navbar-primary navbar-dark',
+    'navbar': 'navbar-white navbar-light',
     'sidebar': 'sidebar-dark-primary',
     'sidebar_nav_compact_style': True,
 }
@@ -150,7 +155,6 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-# Autenticación
-LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/dashboard/'
-LOGOUT_REDIRECT_URL = '/accounts/login/'
+# Autenticación: el admin gestiona su propio login en /admin/login/
+LOGIN_URL = '/admin/login/'
+LOGIN_REDIRECT_URL = '/admin/dashboard/'

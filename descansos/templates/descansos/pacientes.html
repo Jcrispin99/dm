@@ -1,49 +1,57 @@
-{% extends 'descansos/base.html' %}
-{% block title %}Pacientes · Reporte DM{% endblock %}
+{% extends 'admin/base_site.html' %}
 
-{% block extra_head %}
+{% block title %}Pacientes · {{ site_title|default:'Reporte DM' }}{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css">
   <script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
   <style>
-    .choices { width: 100%; margin-bottom: 0; }
-    .choices__inner {
-      padding: 6px 10px;
-      min-height: 38px;
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 14px;
+    :root {
+      --rdm-bg: #f5f7fa; --rdm-card: #fff; --rdm-text: #1f2937; --rdm-muted: #6b7280;
+      --rdm-primary: #2563eb; --rdm-border: #e5e7eb;
     }
-    .choices__list--dropdown .choices__item--selectable.is-highlighted { background: var(--bg); }
+    .rdm-card { background: var(--rdm-card); border: 1px solid var(--rdm-border);
+      border-radius: 8px; padding: 20px; margin-bottom: 16px; color: var(--rdm-text); }
+    .rdm-card h2 { margin-top: 0; font-size: 16px; color: var(--rdm-text); }
+    .rdm-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+      align-items: start; }
+    .rdm-split > .rdm-card { margin-bottom: 0; min-width: 0; }
+    @media (max-width: 1100px) { .rdm-split { grid-template-columns: 1fr; } }
+    .choices { width: 100%; }
+    .choices__inner { padding: 6px 10px; min-height: 38px; background: white;
+      border: 1px solid var(--rdm-border); border-radius: 6px; font-size: 14px; }
+    .choices__list--dropdown .choices__item--selectable.is-highlighted { background: var(--rdm-bg); }
     .choices__input { background: transparent; font-size: 14px; }
-
     .stat-row { display: flex; gap: 16px; flex-wrap: wrap; }
-    .stat-row .stat {
-      flex: 1 1 160px;
-      background: var(--bg);
-      padding: 12px 16px;
-      border-radius: 6px;
-    }
-    .stat .num { font-size: 22px; font-weight: 600; }
-    .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
-
-    .pill {
-      display: inline-block;
-      background: var(--bg);
-      color: var(--text);
-      padding: 2px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      margin-right: 4px;
-    }
-    .obs { color: var(--muted); font-size: 13px; }
+    .stat-row .stat { flex: 1 1 160px; background: var(--rdm-bg);
+      padding: 12px 16px; border-radius: 6px; }
+    .stat .num { font-size: 22px; font-weight: 600; color: var(--rdm-text); }
+    .stat .lbl { font-size: 11px; color: var(--rdm-muted);
+      text-transform: uppercase; margin-bottom: 4px; }
+    .pill { display: inline-block; background: var(--rdm-bg); color: var(--rdm-text);
+      padding: 2px 10px; border-radius: 999px; font-size: 12px; margin-right: 4px; }
+    .obs { color: var(--rdm-muted); font-size: 13px; }
+    .rdm-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .rdm-table th, .rdm-table td { padding: 6px 8px; text-align: left;
+      border-bottom: 1px solid var(--rdm-border); }
+    .rdm-table th { background: var(--rdm-bg); font-weight: 600; }
   </style>
 {% endblock %}
 
+{% block breadcrumbs %}
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'admin:index' %}">Inicio</a></li>
+    <li class="breadcrumb-item active">Pacientes</li>
+  </ol>
+{% endblock %}
+
+{% block content_title %}<h1>Pacientes</h1>{% endblock %}
+
 {% block content %}
-  <div class="card">
+  <div class="rdm-card">
     <h2>Buscar paciente</h2>
-    <p style="color: var(--muted); margin-top: 0;">Escribe código o nombre para filtrar.</p>
+    <p style="color: var(--rdm-muted); margin-top: 0;">Escribe código o nombre para filtrar.</p>
     <select id="paciente-select">
       <option value="">— Selecciona un paciente —</option>
       {% for p in pacientes %}
@@ -53,8 +61,9 @@
   </div>
 
   <div id="detalle" style="display:none;">
-    <div class="card">
+    <div class="rdm-card">
       <h2 id="detalle-titulo"></h2>
+      <div id="detalle-telefono" style="margin-bottom: 8px; color: var(--rdm-text); font-size: 14px;"></div>
       <div id="detalle-gerencias" style="margin-bottom: 16px;"></div>
       <div class="stat-row">
         <div class="stat"><div class="lbl">Total de descansos</div><div class="num" id="r-total"></div></div>
@@ -64,32 +73,79 @@
       </div>
     </div>
 
-    <div class="card">
-      <h2>Historial cronológico</h2>
-      <div style="overflow:auto;">
-        <table id="tbl-descansos">
-          <thead>
-            <tr>
-              <th>Fecha inicio</th>
-              <th>Fecha fin</th>
-              <th style="text-align:right">Días</th>
-              <th>Motivo</th>
-              <th>Gerencia</th>
-              <th>Observaciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+    <div class="rdm-split">
+      <div class="rdm-card">
+        <h2>Historial cronológico</h2>
+        <div style="overflow:auto;">
+          <table id="tbl-descansos" class="rdm-table">
+            <thead>
+              <tr>
+                <th>Fecha inicio</th>
+                <th>Fecha fin</th>
+                <th style="text-align:right">Días</th>
+                <th>Motivo</th>
+                <th>Gerencia</th>
+                <th>Observaciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="rdm-card">
+        <h2>Seguimientos</h2>
+        <form id="form-seguimiento" style="background: var(--rdm-bg); padding: 14px; border-radius: 6px; margin-bottom: 16px;">
+          {% csrf_token %}
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div>
+              <label class="lbl" for="s-fecha">Fecha y hora</label>
+              <input type="datetime-local" id="s-fecha" name="fecha" required>
+            </div>
+            <div>
+              <label class="lbl" for="s-proximo">Próximo contacto</label>
+              <input type="date" id="s-proximo" name="proximo_contacto">
+            </div>
+            <div>
+              <label class="lbl" for="s-medio">Medio</label>
+              <select id="s-medio" name="medio"></select>
+            </div>
+            <div>
+              <label class="lbl" for="s-estado">Estado</label>
+              <select id="s-estado" name="estado"></select>
+            </div>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <label class="lbl" for="s-notas">Notas</label>
+            <textarea id="s-notas" name="notas" rows="2" style="width: 100%; padding: 6px 10px; border: 1px solid var(--rdm-border); border-radius: 6px; font-size: 14px; font-family: inherit;"></textarea>
+          </div>
+          <button type="submit" class="rdm-btn">Registrar seguimiento</button>
+          <span id="s-msg" style="margin-left: 12px; font-size: 13px;"></span>
+        </form>
+
+        <div style="overflow:auto;">
+          <table id="tbl-seguimientos" class="rdm-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Medio</th>
+                <th>Estado</th>
+                <th>Notas</th>
+                <th>Próximo</th>
+                <th>Usuario</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
-  <div id="vacio" class="card" style="text-align:center; color: var(--muted);">
+  <div id="vacio" class="rdm-card" style="text-align:center; color: var(--rdm-muted);">
     Selecciona un paciente para ver su detalle.
   </div>
-{% endblock %}
 
-{% block extra_body %}
 <script>
 const pacienteChoices = new Choices('#paciente-select', {
   searchPlaceholderValue: 'Buscar por código o nombre…',
@@ -98,16 +154,35 @@ const pacienteChoices = new Choices('#paciente-select', {
   searchResultLimit: 20,
 });
 
+let pacienteActual = null;
+
+function fmtFechaHora(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function rellenarSelect(selectEl, options) {
+  selectEl.innerHTML = '';
+  options.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.value;
+    opt.textContent = o.label;
+    selectEl.appendChild(opt);
+  });
+}
+
 async function cargarDetalle(codigo) {
   const detalle = document.getElementById('detalle');
   const vacio = document.getElementById('vacio');
   if (!codigo) {
+    pacienteActual = null;
     detalle.style.display = 'none';
     vacio.style.display = '';
     return;
   }
 
-  const r = await fetch(`/api/paciente/${encodeURIComponent(codigo)}/`);
+  const r = await fetch(`/admin/api/paciente/${encodeURIComponent(codigo)}/`);
   if (!r.ok) {
     detalle.style.display = 'none';
     vacio.style.display = '';
@@ -115,8 +190,12 @@ async function cargarDetalle(codigo) {
     return;
   }
   const d = await r.json();
+  pacienteActual = d.paciente.codigo;
 
   document.getElementById('detalle-titulo').textContent = `${d.paciente.codigo} — ${d.paciente.nombre}`;
+  document.getElementById('detalle-telefono').innerHTML = d.paciente.telefono
+    ? `📞 <a href="tel:${d.paciente.telefono}" style="color: var(--rdm-primary); text-decoration: none;">${d.paciente.telefono}</a>`
+    : '<span class="obs">Sin teléfono registrado · agrégalo desde el admin del paciente</span>';
   document.getElementById('detalle-gerencias').innerHTML =
     d.resumen.gerencias.map(g => `<span class="pill">${g}</span>`).join('') || '<span class="obs">Sin gerencias registradas</span>';
 
@@ -140,7 +219,31 @@ async function cargarDetalle(codigo) {
     tbody.appendChild(tr);
   });
   if (d.descansos.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted); text-align:center">Sin descansos registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--rdm-muted); text-align:center">Sin descansos registrados</td></tr>';
+  }
+
+  // Choices y tabla de seguimientos
+  rellenarSelect(document.getElementById('s-medio'), d.choices.medio);
+  rellenarSelect(document.getElementById('s-estado'), d.choices.estado);
+  const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
+  document.getElementById('s-fecha').value = now.toISOString().slice(0, 16);
+
+  const segBody = document.querySelector('#tbl-seguimientos tbody');
+  segBody.innerHTML = '';
+  d.seguimientos.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${fmtFechaHora(s.fecha)}</td>
+      <td>${s.medio_display}</td>
+      <td>${s.estado_display}</td>
+      <td class="obs">${s.notas || '—'}</td>
+      <td>${s.proximo_contacto || '—'}</td>
+      <td>${s.usuario || '—'}</td>
+    `;
+    segBody.appendChild(tr);
+  });
+  if (d.seguimientos.length === 0) {
+    segBody.innerHTML = '<tr><td colspan="6" style="color:var(--rdm-muted); text-align:center">Sin seguimientos registrados</td></tr>';
   }
 
   detalle.style.display = '';
@@ -151,7 +254,35 @@ document.getElementById('paciente-select').addEventListener('change', (e) => {
   cargarDetalle(e.target.value);
 });
 
-// Preselección por query string
+document.getElementById('form-seguimiento').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!pacienteActual) return;
+  const msg = document.getElementById('s-msg');
+  msg.textContent = 'Guardando…';
+  msg.style.color = 'var(--rdm-muted)';
+
+  const form = e.target;
+  const data = new FormData(form);
+  const csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  const r = await fetch(`/admin/api/paciente/${encodeURIComponent(pacienteActual)}/seguimiento/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': csrf },
+    body: data,
+  });
+  if (!r.ok) {
+    const errBody = await r.json().catch(() => ({}));
+    msg.textContent = 'Error: ' + ((errBody.errores || []).join(', ') || 'no se pudo guardar');
+    msg.style.color = 'var(--rdm-err, #dc2626)';
+    return;
+  }
+  msg.textContent = 'Seguimiento registrado ✓';
+  msg.style.color = 'var(--rdm-ok, #16a34a)';
+  form.reset();
+  cargarDetalle(pacienteActual);
+  setTimeout(() => { msg.textContent = ''; }, 2500);
+});
+
 const preselect = "{{ codigo_preseleccion|escapejs }}";
 if (preselect) {
   cargarDetalle(preselect);
